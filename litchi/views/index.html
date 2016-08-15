@@ -5,6 +5,7 @@
     <form onsubmit="return send();">
         <button type="button" onclick="return connect();">Connect</button>
         <button type="button" onclick="return disconnect();">Disconnect</button>
+        <input id="to_client_id" type="text" placeholder="send to client">
         <input id="text" type="text">
         <button type="submit">Send</button>
     </form>
@@ -40,13 +41,16 @@
 
         function send() {
           if (ws === null) return log('please connect first');
+          var send_to = document.getElementById("to_client_id").value;
           var text = document.getElementById('text').value;
           document.getElementById('text').value = "";
           log('send: ' + text);
-          var content = {
-            msg: text
+          var msg = {
+            type: 0,
+            cid: parseInt(send_to) || 0,
+            content: text
           };
-          ws.send(JSON.stringify(content));
+          ws.send(JSON.stringify(msg));
           return false;
         }
 

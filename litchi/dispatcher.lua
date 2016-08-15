@@ -7,17 +7,16 @@ local now = ngx.now
 
 local Dispatcher = {}
 
-function Dispatcher:new(id)
+function Dispatcher:new(context)
     local instance = {}
-    instance.id = id or 0
-    instance.name = "dispatcher-" .. id
+    instance.context = context
     instance.create_time = now()
 
     setmetatable(instance, {
         __index = self,
         __tostring = function(s)
             local ok, result = pcall(function()
-                return "(id:" .. s.id .. "\tname:" .. s.name .. "\tcreate_time:" .. s.create_time .. ")"
+                return "(dispatcher->create_time:" .. s.create_time .. ")"
             end)
 
             if ok then
@@ -30,16 +29,37 @@ function Dispatcher:new(id)
     return instance
 end
 
-function Dispatcher:send_to(cid, msg)
+function Dispatcher:dispatch(msg)
+    if not msg or type(msg) ~= "table" then return end
+
+    if msg.type == 0 then -- send to some uid
+        self:send_to(msg.cid, msg.content)
+    elseif msg.type == 1 then -- broadcast
+        self:broadcast(msg.content)
+    elseif msg.type == 2 then -- multicast
+        self:multicast(msg.gid, msg.content)
+    end
+end
+
+function Dispatcher:send_to(cid, content)
+    local to_client = self.context.clients[cid]
+    if to_client then
+        to_client:notify(content)
+    else
+        ngx.log(ngx.INFO, "nil client to send: ", cid)
+    end
+end
+
+function Dispatcher:broadcast(content)
+
+end
+
+function Dispatcher:multicast(gid, content)
     
 end
 
-function Dispatcher:broadcast(msg)
+function Dispatcher:find_client(cid)
 
-end
-
-function Dispatcher:multicast(gid, msg)
-    
 end
 
 

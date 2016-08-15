@@ -1,11 +1,14 @@
 local setmetatable = setmetatable
 local type = type
+local tostring = tostring
 local string_format = string.format
+local table_insert = table.insert
 local cjson = require("cjson")
 local now = ngx.now
 
 local function _start_receive_msg(client)
     local wb = client.wb
+    local dispatcher = client.dispatcher
     local msg_count = 0
 
     while(true) do
@@ -42,7 +45,7 @@ local function _start_receive_msg(client)
             if not ok or not body then
                 ngx.log(ngx.ERR, "cannot decode payload to json")
             else
-
+                dispatcher:dispatch(body)
             end
         end
 
@@ -50,14 +53,48 @@ local function _start_receive_msg(client)
     end
 end
 
+local function _start_send_msg(client)
+    local id = client.id
+    local wb = client.wb
+    local msg_count = 0
+
+    while(true) do
+        local ok, err = client.sema:wait(24*60*60)
+        if ok then
+            local send_queue = client.data
+            local i = 1 
+            while send_queue[i] do
+                local content = table.remove(send_queue,i)
+                i = i+1 
+
+                if type(content) ~= "string" then content = tostring(content) end
+                ngx.log(ngx.INFO, "send to client:", id, " content:", content)
+                
+                local bytes, err = wb:send_text(content)
+                if not bytes then
+                    ngx.log(ngx.ERR, "failed to send msg, client_id:", id, " err:" , err)
+                    return ngx.exit(444)
+                end
+            end 
+        else
+            ngx.log(ngx.ERR, "semaphore wait error, client_id:", id, " err:" , err)
+        end
+    end
+end
+
 
 local Client = {}
 
-function Client:new(id, wb)
+function Client:new(id, wb, sema, dispatcher)
     local instance = {}
     instance.id = id
     instance.name = "client-" .. id
     instance.wb = wb
+    instance.sema = sema
+    instance.dispatcher = dispatcher
+    instance.receive_co = nil -- receive thread
+    instance.send_co = nil
+    instance.data = {}
     instance.create_time = now()
 
     setmetatable(instance, {
@@ -78,15 +115,18 @@ function Client:new(id, wb)
 end
 
 function Client:receive_msg()
-    ngx.thread.spawn(_start_receive_msg, self)
+    local receive_co = ngx.thread.spawn(_start_receive_msg, self)
+    self.receive_co = receive_co
 end
 
-function Client:send_msg(msg)
-    local bytes, err = self.wb:send_text(msg)
-    if not bytes then
-        ngx.log(ngx.ERR, "failed to send a text frame: ", err)
-        return ngx.exit(444)
-    end
+function Client:send_msg(content)
+    local send_co = ngx.thread.spawn(_start_send_msg, self)
+    self.send_co = send_co
+end
+
+function Client:notify(content)
+    table_insert(self.data, content)
+    self.sema:post(1)
 end
 
 function Client:close()
