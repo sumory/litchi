@@ -1,5 +1,6 @@
 #/bin/bash
 
+rm -rf logs/*.log
 mkdir -p logs
 
 if [ -f "./logs/nginx.pid" ]; then

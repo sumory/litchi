@@ -1,5 +1,7 @@
 local setmetatable = setmetatable
 local type = type
+local ipairs = ipairs
+local pairs = pairs
 local string_format = string.format
 local cjson = require("cjson")
 local now = ngx.now
@@ -51,7 +53,12 @@ function Dispatcher:send_to(cid, content)
 end
 
 function Dispatcher:broadcast(content)
-
+    local clients = self.context.clients
+    for i, c in pairs(clients) do
+        if c then
+            c:notify(content)
+        end
+    end
 end
 
 function Dispatcher:multicast(gid, content)
@@ -59,7 +66,7 @@ function Dispatcher:multicast(gid, content)
 end
 
 function Dispatcher:find_client(cid)
-
+    return self.context.clients[cid]
 end
 
 

@@ -19,7 +19,6 @@ end
 
 -- start a new client
 function _M.start_client()
-    local sema = semaphore.new()
     local wb, err = server:new{
         timeout = 3600000, -- s
         max_payload_len = 65535,
@@ -30,12 +29,16 @@ function _M.start_client()
         return ngx.exit(444)
     end
 
-    local client = Client:new(mrandom(10000, 99999), wb, sema, dispather)
+    local client_id = mrandom(10000, 99999) -- mock id
+    local sema = semaphore.new()
+    local client = Client:new(client_id, wb, sema, dispather)
     context.clients[client.id] = client
-    ngx.log(ngx.INFO, string_format("[client][%d] login...", client.id))
     client:receive_msg()
     client:send_msg()
+
+    ngx.log(ngx.INFO, string_format("[client][%d] login...", client.id))
 end
+
 
 return _M
 

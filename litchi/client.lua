@@ -39,7 +39,7 @@ local function _start_receive_msg(client)
         elseif typ == "pong" then
             -- ignore pong msg
         else
-            ngx.log(ngx.INFO, string_format("[client:%d] received a msg of type %s and payload [%s]", client.id, typ, data))
+            ngx.log(ngx.INFO, string_format("[client:%d] receive a msg， type %s， payload [%s]", client.id, typ, data))
 
             local ok, body = pcall(function() return cjson.decode(data) end)
             if not ok or not body then
@@ -48,8 +48,6 @@ local function _start_receive_msg(client)
                 dispatcher:dispatch(body)
             end
         end
-
-        -- wb:set_timeout(5000)  -- change the network timeout to 1 second
     end
 end
 
@@ -59,7 +57,7 @@ local function _start_send_msg(client)
     local msg_count = 0
 
     while(true) do
-        local ok, err = client.sema:wait(24*60*60)
+        local ok, err = client.sema:wait(3*60)
         if ok then
             local send_queue = client.data
             local i = 1 
@@ -68,14 +66,16 @@ local function _start_send_msg(client)
                 i = i+1 
 
                 if type(content) ~= "string" then content = tostring(content) end
+
                 ngx.log(ngx.INFO, "send to client:", id, " content:", content)
-                
                 local bytes, err = wb:send_text(content)
                 if not bytes then
                     ngx.log(ngx.ERR, "failed to send msg, client_id:", id, " err:" , err)
                     return ngx.exit(444)
                 end
-            end 
+            end
+        elseif err == "timeout" then
+            ngx.log(ngx.INFO, "client wait timeout....")
         else
             ngx.log(ngx.ERR, "semaphore wait error, client_id:", id, " err:" , err)
         end
