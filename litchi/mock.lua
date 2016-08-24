@@ -7,8 +7,12 @@ app:conf("view engine",  "tmpl")
 app:conf("view ext", "html")
 app:conf("views", "./litchi/views")
 
-app:get("/", function(req, res, next)
+app:get("/index", function(req, res, next)
     res:render("index")
+end)
+
+app:get("/", function(req, res, next)
+    res:render("demo")
 end)
 
 -- 404 error

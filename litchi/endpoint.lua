@@ -10,17 +10,13 @@ math.randomseed(ngx.now())
 local context, dispather
 local _M = {}
 
--- init
-function _M.init(litchi_context)
-    context = litchi_context
-    dispather = Dispather:new(context)
-end
+
 
 
 -- start a new client
-function _M.start_client()
+function _M.start_client(context, dispather)
     local wb, err = server:new{
-        timeout = 3600000, -- s
+        timeout = 3600000, -- for test...
         max_payload_len = 65535,
     }
 
@@ -32,11 +28,12 @@ function _M.start_client()
     local client_id = mrandom(10000, 99999) -- mock id
     local sema = semaphore.new()
     local client = Client:new(client_id, wb, sema, dispather)
-    context.clients[client.id] = client
-    client:receive_msg()
-    client:send_msg()
-
     ngx.log(ngx.INFO, string_format("[client][%d] login...", client.id))
+
+    context.clients[client.id] = client
+    client:send_msg() -- in another thread
+    client:receive_msg() -- in main tread
+    client:signin() -- login event broadcast, just for test
 end
 
 

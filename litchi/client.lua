@@ -4,6 +4,7 @@ local tostring = tostring
 local string_format = string.format
 local table_insert = table.insert
 local cjson = require("cjson")
+local utils = require("litchi.lib.utils")
 local now = ngx.now
 
 local function _start_receive_msg(client)
@@ -114,20 +115,43 @@ function Client:new(id, wb, sema, dispatcher)
     return instance
 end
 
-function Client:receive_msg()
-    local receive_co = ngx.thread.spawn(_start_receive_msg, self)
-    self.receive_co = receive_co
+function Client:receive_msg(in_thread)
+    if in_thread == true then
+        self.receive_co = ngx.thread.spawn(_start_receive_msg, self)
+    else
+        _start_receive_msg(self)
+    end
 end
 
-function Client:send_msg(content)
-    local send_co = ngx.thread.spawn(_start_send_msg, self)
-    self.send_co = send_co
+function Client:send_msg()
+    self.send_co = ngx.thread.spawn(_start_send_msg, self)
 end
 
 function Client:notify(content)
-    table_insert(self.data, content)
+    self:_inner_queue(content)
     self.sema:post(1)
 end
+
+function Client:signin()
+    -- self.dispatcher:dispatch({
+    --     type = 1,
+    --     content = "[user" .. self.id .. "] just signed in..."
+    -- })
+
+    self.dispatcher:dispatch({
+        type = 0,
+        cid = self.id,
+        content = {
+            type = "auth",
+            cid = self.id
+        }
+    })
+end
+
+function Client:_inner_queue(content)
+    table_insert(self.data, content)
+end
+
 
 function Client:close()
     local bytes, err = self.wb:send_close(1000, "close now..")
